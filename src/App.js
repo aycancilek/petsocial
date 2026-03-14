@@ -65,8 +65,13 @@ export default function PetSocial() {
   const [friendRequests, setFriendRequests] = useState([]);
   const [notification, setNotification] = useState(null);
   const [matchFilter, setMatchFilter] = useState("all");
+  const [postImage, setPostImage] = useState(null);
+  const [commentInputs, setCommentInputs] = useState({});
+  const [openComments, setOpenComments] = useState({});
   const chatEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
+  // Register form
   const [form, setForm] = useState({
     petName: "", ownerName: "", species: "Köpek", breed: "", age: "", avatar: "🐾", bio: "", password: ""
   });
@@ -132,21 +137,55 @@ export default function PetSocial() {
   };
 
   const addPost = () => {
-    if (!newPost.trim()) return;
+    if (!newPost.trim() && !postImage) return;
     const post = {
       id: Date.now(),
       userId: currentUser.id,
       text: newPost,
       likes: 0,
+      likedBy: [],
       comments: [],
       time: "Az önce",
-      image: ["🌟","🎾","🐾","🌈","🍖","🌸","⭐"][Math.floor(Math.random()*7)],
+      image: postImage || null,
+      emoji: !postImage ? ["🌟","🎾","🐾","🌈","🍖","🌸","⭐"][Math.floor(Math.random()*7)] : null,
     };
     setPosts(prev => [post, ...prev]);
     setCurrentUser(prev => ({ ...prev, posts: [post.id, ...prev.posts] }));
     setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, posts: [post.id, ...u.posts] } : u));
     setNewPost("");
+    setPostImage(null);
     showNotif("📝 Gönderi paylaşıldı!");
+  };
+
+  const addComment = (postId) => {
+    const text = commentInputs[postId];
+    if (!text?.trim()) return;
+    setPosts(prev => prev.map(p => p.id === postId ? {
+      ...p,
+      comments: [...p.comments, { userId: currentUser.id, text, time: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) }]
+    } : p));
+    setCommentInputs(prev => ({ ...prev, [postId]: "" }));
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setPostImage(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const toggleLike = (postId) => {
+    setPosts(prev => prev.map(p => {
+      if (p.id !== postId) return p;
+      const likedBy = p.likedBy || [];
+      const alreadyLiked = likedBy.includes(currentUser.id);
+      return {
+        ...p,
+        likes: alreadyLiked ? p.likes - 1 : p.likes + 1,
+        likedBy: alreadyLiked ? likedBy.filter(id => id !== currentUser.id) : [...likedBy, currentUser.id]
+      };
+    }));
   };
 
   const likePost = (postId) => {
@@ -166,32 +205,60 @@ export default function PetSocial() {
 
   const getChatKey = (id) => [currentUser?.id, id].sort((a,b)=>a-b).join("-");
 
+  // ---- SCREENS ----
+
   if (screen === "splash") return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#FFF4E6 0%,#FFE0B2 50%,#FFCCBC 100%)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", fontFamily:"'Fredoka One','Comic Sans MS',cursive", position:"relative", overflow:"hidden" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap'); *{box-sizing:border-box} @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}} @keyframes wiggle{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}} @keyframes pop{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}} @keyframes notif{0%{transform:translateY(-80px);opacity:0}15%,85%{transform:translateY(0);opacity:1}100%{transform:translateY(-80px);opacity:0}}`}</style>
-      <div style={{ fontSize:100, animation:"float 2.5s ease-in-out infinite" }}>🐾</div>
-      <h1 style={{ fontSize:56, color:"#E65100", margin:"10px 0 5px", letterSpacing:2 }}>Pet Social</h1>
-      <p style={{ fontFamily:"Nunito", fontSize:18, color:"#BF360C", marginBottom:40 }}>Tüylü dostların sosyal dünyası 🌍</p>
-      <div style={{ display:"flex", gap:20 }}>
-        <button onClick={() => setScreen("login")} style={btn("#FF7043","#fff")}>Giriş Yap 🐾</button>
-        <button onClick={() => setScreen("register")} style={btn("#66BB6A","#fff")}>Kayıt Ol 🎉</button>
+    <div style={{
+      minHeight: "100vh", background: "linear-gradient(135deg, #FFF4E6 0%, #FFE0B2 50%, #FFCCBC 100%)",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      fontFamily: "'Fredoka One', 'Comic Sans MS', cursive", position: "relative", overflow: "hidden"
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #fff3e0; }
+        ::-webkit-scrollbar-thumb { background: #FFB74D; border-radius: 3px; }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-18px)} }
+        @keyframes wiggle { 0%,100%{transform:rotate(-5deg)} 50%{transform:rotate(5deg)} }
+        @keyframes pop { 0%{transform:scale(0.8);opacity:0} 100%{transform:scale(1);opacity:1} }
+        @keyframes slideUp { 0%{transform:translateY(40px);opacity:0} 100%{transform:translateY(0);opacity:1} }
+        @keyframes notif { 0%{transform:translateY(-80px);opacity:0} 15%,85%{transform:translateY(0);opacity:1} 100%{transform:translateY(-80px);opacity:0} }
+      `}</style>
+      <div style={{ fontSize: 100, animation: "float 2.5s ease-in-out infinite" }}>🐾</div>
+      <h1 style={{ fontSize: 56, color: "#E65100", margin: "10px 0 5px", letterSpacing: 2 }}>Pet Social</h1>
+      <p style={{ fontFamily: "Nunito", fontSize: 18, color: "#BF360C", marginBottom: 40 }}>Tüylü dostların sosyal dünyası 🌍</p>
+      <div style={{ display: "flex", gap: 20 }}>
+        <button onClick={() => setScreen("login")} style={btn("#FF7043", "#fff")}>Giriş Yap 🐾</button>
+        <button onClick={() => setScreen("register")} style={btn("#66BB6A", "#fff")}>Kayıt Ol 🎉</button>
       </div>
-      <div style={{ position:"absolute", fontSize:40, bottom:30, left:"10%", animation:"wiggle 2s infinite" }}>🐶</div>
-      <div style={{ position:"absolute", fontSize:40, bottom:50, right:"12%", animation:"wiggle 2.3s infinite" }}>🐱</div>
-      <div style={{ position:"absolute", fontSize:30, top:40, left:"20%", animation:"float 3s infinite" }}>🐦</div>
-      <div style={{ position:"absolute", fontSize:30, top:60, right:"18%", animation:"float 2.8s infinite" }}>🐰</div>
+      <div style={{ position: "absolute", fontSize: 40, bottom: 30, left: "10%", animation: "wiggle 2s infinite" }}>🐶</div>
+      <div style={{ position: "absolute", fontSize: 40, bottom: 50, right: "12%", animation: "wiggle 2.3s infinite" }}>🐱</div>
+      <div style={{ position: "absolute", fontSize: 30, top: 40, left: "20%", animation: "float 3s infinite" }}>🐦</div>
+      <div style={{ position: "absolute", fontSize: 30, top: 60, right: "18%", animation: "float 2.8s infinite" }}>🐰</div>
     </div>
   );
 
   if (screen === "login") return (
     <div style={authBg()}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap'); *{box-sizing:border-box} @keyframes pop{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}} @keyframes notif{0%{transform:translateY(-80px);opacity:0}15%,85%{transform:translateY(0);opacity:1}100%{transform:translateY(-80px);opacity:0}}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap'); *{box-sizing:border-box} @keyframes pop{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}}`}</style>
       <div style={card()}>
-        <div style={{ fontSize:60, textAlign:"center" }}>🐾</div>
+        <div style={{ fontSize: 60, textAlign: "center" }}>🐾</div>
         <h2 style={title()}>Pet Social'a Giriş</h2>
-        <p style={{ fontFamily:"Nunito", color:"#888", textAlign:"center", marginBottom:20 }}>Evcil hayvanın adıyla giriş yap!</p>
-        <input id="loginInput" style={input()} placeholder="🐾 Evcil hayvanın adı" onKeyDown={e => { if(e.key==="Enter"){ const found=users.find(u=>u.petName.toLowerCase()===e.target.value.toLowerCase()); if(found){setCurrentUser(found);setScreen("home");}else showNotif("❌ Kayıtlı hayvan bulunamadı!");}}} />
-        <button style={btn("#FF7043","#fff","100%")} onClick={() => { const val=document.getElementById("loginInput").value; const found=users.find(u=>u.petName.toLowerCase()===val.toLowerCase()); if(found){setCurrentUser(found);setScreen("home");}else showNotif("❌ Kayıtlı hayvan bulunamadı!");}}>Giriş Yap 🚀</button>
+        <p style={{ fontFamily: "Nunito", color: "#888", textAlign: "center", marginBottom: 20 }}>Evcil hayvanın adıyla giriş yap!</p>
+        <input style={input()} placeholder="🐾 Evcil hayvanın adı" onKeyDown={e => {
+          if (e.key === "Enter") {
+            const found = users.find(u => u.petName.toLowerCase() === e.target.value.toLowerCase());
+            if (found) { setCurrentUser(found); setScreen("home"); }
+            else showNotif("❌ Kayıtlı hayvan bulunamadı!");
+          }
+        }} />
+        <button style={btn("#FF7043","#fff","100%")} onClick={(e) => {
+          const val = e.target.previousSibling.value;
+          const found = users.find(u => u.petName.toLowerCase() === val.toLowerCase());
+          if (found) { setCurrentUser(found); setScreen("home"); }
+          else showNotif("❌ Kayıtlı hayvan bulunamadı!");
+        }}>Giriş Yap 🚀</button>
         <button style={{...btn("#eee","#555","100%"), marginTop:10}} onClick={() => setScreen("splash")}>← Geri</button>
         {notification && <div style={notifStyle()}>{notification}</div>}
       </div>
@@ -200,288 +267,426 @@ export default function PetSocial() {
 
   if (screen === "register") return (
     <div style={authBg()}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap'); *{box-sizing:border-box} @keyframes pop{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}} @keyframes notif{0%{transform:translateX(120%);opacity:0}15%,85%{transform:translateX(0);opacity:1}100%{transform:translateX(120%);opacity:0}}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap'); *{box-sizing:border-box} @keyframes pop{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}} @keyframes notif{0%{transform:translateY(-80px);opacity:0}15%,85%{transform:translateY(0);opacity:1}100%{transform:translateY(-80px);opacity:0}}`}</style>
       <div style={card("640px")}>
-        <div style={{ fontSize:50, textAlign:"center" }}>🎉</div>
+        <div style={{ fontSize: 50, textAlign: "center" }}>🎉</div>
         <h2 style={title()}>Yeni Hesap Oluştur</h2>
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-          <div><label style={label()}>Evcil Hayvanın Adı *</label><input style={input()} placeholder="örn: Pamuk" value={form.petName} onChange={e=>setForm({...form,petName:e.target.value})} /></div>
-          <div><label style={label()}>Sahibinin Adı *</label><input style={input()} placeholder="Adınız Soyadınız" value={form.ownerName} onChange={e=>setForm({...form,ownerName:e.target.value})} /></div>
-          <div><label style={label()}>Tür *</label><select style={input()} value={form.species} onChange={e=>setForm({...form,species:e.target.value,breed:""})}>{Object.keys(BREEDS).map(s=><option key={s}>{s}</option>)}</select></div>
-          <div><label style={label()}>Irk *</label><select style={input()} value={form.breed} onChange={e=>setForm({...form,breed:e.target.value})}><option value="">Seçiniz...</option>{(BREEDS[form.species]||[]).map(b=><option key={b}>{b}</option>)}</select></div>
-          <div><label style={label()}>Yaş *</label><input style={input()} placeholder="Yaş (yıl)" type="number" min="0" max="30" value={form.age} onChange={e=>setForm({...form,age:e.target.value})} /></div>
-          <div><label style={label()}>Avatar Emoji</label><select style={input()} value={form.avatar} onChange={e=>setForm({...form,avatar:e.target.value})}>{AVATARS.map(a=><option key={a} value={a}>{a}</option>)}</select></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <label style={label()}>Evcil Hayvanın Adı *</label>
+            <input style={input()} placeholder="örn: Pamuk" value={form.petName} onChange={e => setForm({...form, petName: e.target.value})} />
+          </div>
+          <div>
+            <label style={label()}>Sahibinin Adı *</label>
+            <input style={input()} placeholder="Adınız Soyadınız" value={form.ownerName} onChange={e => setForm({...form, ownerName: e.target.value})} />
+          </div>
+          <div>
+            <label style={label()}>Tür *</label>
+            <select style={input()} value={form.species} onChange={e => setForm({...form, species: e.target.value, breed: ""})}>
+              {Object.keys(BREEDS).map(s => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={label()}>Irk *</label>
+            <select style={input()} value={form.breed} onChange={e => setForm({...form, breed: e.target.value})}>
+              <option value="">Seçiniz...</option>
+              {(BREEDS[form.species] || []).map(b => <option key={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={label()}>Yaş *</label>
+            <input style={input()} placeholder="Yaş (yıl)" type="number" min="0" max="30" value={form.age} onChange={e => setForm({...form, age: e.target.value})} />
+          </div>
+          <div>
+            <label style={label()}>Avatar Emoji</label>
+            <select style={input()} value={form.avatar} onChange={e => setForm({...form, avatar: e.target.value})}>
+              {AVATARS.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
         </div>
-        <div><label style={label()}>Hakkında</label><textarea style={{...input(),height:70,resize:"none"}} placeholder="Kendinizi tanıtın..." value={form.bio} onChange={e=>setForm({...form,bio:e.target.value})} /></div>
-        <div style={{ background:"#FFF3E0", borderRadius:12, padding:12, fontFamily:"Nunito", fontSize:13, color:"#E65100" }}>{form.avatar} {form.petName||"?"} · {form.species&&SPECIES_EMOJI[form.species]} {form.species} · {form.breed||"Irk seçilmedi"}</div>
+        <div>
+          <label style={label()}>Hakkında</label>
+          <textarea style={{...input(), height: 70, resize: "none"}} placeholder="Kendinizi tanıtın..." value={form.bio} onChange={e => setForm({...form, bio: e.target.value})} />
+        </div>
+        <div style={{ background: "#FFF3E0", borderRadius: 12, padding: 12, marginBottom: 10, fontFamily: "Nunito", fontSize: 13, color: "#E65100" }}>
+          {form.avatar} Seçilen avatar: <b>{form.petName || "?"}</b> · {form.species && SPECIES_EMOJI[form.species]} {form.species} · {form.breed || "Irk seçilmedi"}
+        </div>
         <button style={btn("#66BB6A","#fff","100%")} onClick={register}>🎉 Kayıt Ol!</button>
-        <button style={{...btn("#eee","#555","100%"),marginTop:10}} onClick={() => setScreen("splash")}>← Geri</button>
+        <button style={{...btn("#eee","#555","100%"), marginTop:10}} onClick={() => setScreen("splash")}>← Geri</button>
         {notification && <div style={notifStyle()}>{notification}</div>}
       </div>
     </div>
   );
 
+  // MAIN APP
   const me = currentUser;
   const myPosts = posts.filter(p => me.posts?.includes(p.id) || p.userId === me.id);
-  const feedPosts = posts;
+  const feedPosts = posts.filter(p => {
+    const poster = getUser(p.userId);
+    return poster && (p.userId === me.id || me.friends?.includes(p.userId) || true);
+  });
 
   return (
-    <div style={{ minHeight:"100vh", background:"#FFF8F0", fontFamily:"Nunito, sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap'); *{box-sizing:border-box} ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-track{background:#fff3e0} ::-webkit-scrollbar-thumb{background:#FFB74D;border-radius:3px} @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}} @keyframes pop{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}} @keyframes slideUp{0%{transform:translateY(20px);opacity:0}100%{transform:translateY(0);opacity:1}} @keyframes notif{0%{transform:translateX(120%);opacity:0}15%,85%{transform:translateX(0);opacity:1}100%{transform:translateX(120%);opacity:0}} .tab-btn:hover{opacity:0.85;transform:scale(1.05)} .post-card:hover{box-shadow:0 8px 25px rgba(255,112,67,0.15);transform:translateY(-2px)} .user-card:hover{box-shadow:0 8px 25px rgba(255,112,67,0.15);transform:translateY(-2px)} .action-btn:hover{opacity:0.85;transform:scale(1.03)}`}</style>
+    <div style={{ minHeight: "100vh", background: "#FFF8F0", fontFamily: "Nunito, sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #fff3e0; }
+        ::-webkit-scrollbar-thumb { background: #FFB74D; border-radius: 3px; }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+        @keyframes pop { 0%{transform:scale(0.8);opacity:0} 100%{transform:scale(1);opacity:1} }
+        @keyframes slideUp { 0%{transform:translateY(20px);opacity:0} 100%{transform:translateY(0);opacity:1} }
+        @keyframes notif { 0%{transform:translateX(120%);opacity:0} 15%,85%{transform:translateX(0);opacity:1} 100%{transform:translateX(120%);opacity:0} }
+        .tab-btn:hover { opacity: 0.85; transform: scale(1.05); }
+        .post-card:hover { box-shadow: 0 8px 25px rgba(255,112,67,0.15); transform: translateY(-2px); }
+        .user-card:hover { box-shadow: 0 8px 25px rgba(255,112,67,0.15); transform: translateY(-2px); }
+        .action-btn:hover { opacity: 0.85; transform: scale(1.03); }
+      `}</style>
 
-      <div style={{ background:"linear-gradient(90deg,#FF7043,#FF8A65)", padding:"12px 20px", display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100, boxShadow:"0 3px 15px rgba(255,112,67,0.3)" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-          <span style={{ fontSize:28 }}>🐾</span>
-          <span style={{ fontFamily:"Fredoka One", fontSize:26, color:"#fff", letterSpacing:1 }}>Pet Social</span>
+      {/* TOP NAV */}
+      <div style={{ background: "linear-gradient(90deg, #FF7043, #FF8A65)", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 100, boxShadow: "0 3px 15px rgba(255,112,67,0.3)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 28 }}>🐾</span>
+          <span style={{ fontFamily: "Fredoka One", fontSize: 26, color: "#fff", letterSpacing: 1 }}>Pet Social</span>
         </div>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          {myRequests.length > 0 && <div style={{ background:"#fff", color:"#FF7043", borderRadius:20, padding:"4px 12px", fontSize:13, fontWeight:800 }}>🔔 {myRequests.length} istek</div>}
-          <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(255,255,255,0.25)", borderRadius:25, padding:"6px 14px", cursor:"pointer" }} onClick={() => setActiveTab("profile")}>
-            <span style={{ fontSize:22 }}>{me.avatar}</span>
-            <span style={{ color:"#fff", fontWeight:800, fontSize:14 }}>{me.petName}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {myRequests.length > 0 && (
+            <div style={{ background: "#fff", color: "#FF7043", borderRadius: 20, padding: "4px 12px", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", gap: 5 }}>
+              🔔 {myRequests.length} istek
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.25)", borderRadius: 25, padding: "6px 14px", cursor: "pointer" }} onClick={() => setActiveTab("profile")}>
+            <span style={{ fontSize: 22 }}>{me.avatar}</span>
+            <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>{me.petName}</span>
           </div>
-          <button onClick={() => { setCurrentUser(null); setScreen("splash"); }} style={{ background:"rgba(255,255,255,0.2)", border:"none", color:"#fff", borderRadius:20, padding:"6px 14px", cursor:"pointer", fontFamily:"Nunito", fontWeight:700, fontSize:13 }}>Çıkış</button>
+          <button onClick={() => { setCurrentUser(null); setScreen("splash"); }} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", borderRadius: 20, padding: "6px 14px", cursor: "pointer", fontFamily: "Nunito", fontWeight: 700, fontSize: 13 }}>Çıkış</button>
         </div>
       </div>
 
-      <div style={{ position:"fixed", bottom:0, left:0, right:0, background:"#fff", boxShadow:"0 -3px 15px rgba(0,0,0,0.1)", display:"flex", zIndex:100 }}>
-        {[{id:"feed",icon:"🏠",label:"Ana Sayfa"},{id:"match",icon:"🔍",label:"Eşleş"},{id:"friends",icon:"🐾",label:"Arkadaşlar"},{id:"chat",icon:"💬",label:"Sohbet"},{id:"profile",icon:"⭐",label:"Profil"}].map(t => (
-          <button key={t.id} className="tab-btn" onClick={() => { setActiveTab(t.id); setActiveChatId(null); }} style={{ flex:1, border:"none", background:activeTab===t.id?"#FFF3E0":"transparent", padding:"10px 0", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:2, transition:"all 0.2s", color:activeTab===t.id?"#FF7043":"#aaa", position:"relative" }}>
-            <span style={{ fontSize:22 }}>{t.icon}</span>
-            <span style={{ fontSize:10, fontWeight:700 }}>{t.label}</span>
-            {t.id==="friends" && myRequests.length>0 && <div style={{ position:"absolute", top:6, right:"28%", background:"#F44336", color:"#fff", borderRadius:"50%", width:16, height:16, fontSize:10, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:800 }}>{myRequests.length}</div>}
+      {/* BOTTOM TAB NAV */}
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", boxShadow: "0 -3px 15px rgba(0,0,0,0.1)", display: "flex", zIndex: 100 }}>
+        {[
+          { id: "feed", icon: "🏠", label: "Ana Sayfa" },
+          { id: "match", icon: "🔍", label: "Eşleş" },
+          { id: "friends", icon: "🐾", label: "Arkadaşlar" },
+          { id: "chat", icon: "💬", label: "Sohbet" },
+          { id: "profile", icon: "⭐", label: "Profil" },
+        ].map(t => (
+          <button key={t.id} className="tab-btn" onClick={() => { setActiveTab(t.id); setActiveChatId(null); }} style={{
+            flex: 1, border: "none", background: activeTab === t.id ? "#FFF3E0" : "transparent",
+            padding: "10px 0", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+            transition: "all 0.2s", color: activeTab === t.id ? "#FF7043" : "#aaa", position: "relative"
+          }}>
+            <span style={{ fontSize: 22 }}>{t.icon}</span>
+            <span style={{ fontSize: 10, fontWeight: 700 }}>{t.label}</span>
+            {t.id === "friends" && myRequests.length > 0 && (
+              <div style={{ position: "absolute", top: 6, right: "28%", background: "#F44336", color: "#fff", borderRadius: "50%", width: 16, height: 16, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>{myRequests.length}</div>
+            )}
           </button>
         ))}
       </div>
 
-      {notification && <div style={{ position:"fixed", top:80, right:20, background:"#fff", border:"3px solid #FF7043", borderRadius:16, padding:"12px 20px", fontWeight:800, color:"#E65100", zIndex:999, boxShadow:"0 5px 20px rgba(255,112,67,0.3)", animation:"notif 2.5s ease forwards" }}>{notification}</div>}
+      {/* NOTIFICATION */}
+      {notification && (
+        <div style={{ position: "fixed", top: 80, right: 20, background: "#fff", border: "3px solid #FF7043", borderRadius: 16, padding: "12px 20px", fontWeight: 800, color: "#E65100", zIndex: 999, boxShadow: "0 5px 20px rgba(255,112,67,0.3)", animation: "notif 2.5s ease forwards" }}>
+          {notification}
+        </div>
+      )}
 
-      <div style={{ maxWidth:650, margin:"0 auto", padding:"20px 16px 90px" }}>
+      <div style={{ maxWidth: 650, margin: "0 auto", padding: "20px 16px 90px" }}>
 
-        {activeTab==="feed" && (
-          <div style={{ animation:"slideUp 0.3s ease" }}>
-            <div style={{ background:"#fff", borderRadius:20, padding:18, marginBottom:18, boxShadow:"0 3px 15px rgba(0,0,0,0.06)" }}>
-              <div style={{ display:"flex", gap:12, alignItems:"flex-start" }}>
-                <div style={{ fontSize:40 }}>{me.avatar}</div>
-                <div style={{ flex:1 }}>
-                  <textarea value={newPost} onChange={e=>setNewPost(e.target.value)} style={{ width:"100%", border:"2px solid #FFE0B2", borderRadius:14, padding:12, fontFamily:"Nunito", fontSize:14, resize:"none", height:80, outline:"none" }} placeholder={`${me.petName} olarak bir şeyler paylaş... 🐾`} />
-                  <button className="action-btn" onClick={addPost} style={btn("#FF7043","#fff")}>Paylaş 🚀</button>
+        {/* FEED */}
+        {activeTab === "feed" && (
+          <div style={{ animation: "slideUp 0.3s ease" }}>
+            {/* New Post */}
+            <div style={{ background: "#fff", borderRadius: 20, padding: 18, marginBottom: 18, boxShadow: "0 3px 15px rgba(0,0,0,0.06)" }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ fontSize: 40 }}>{me.avatar}</div>
+                <div style={{ flex: 1 }}>
+                  <textarea value={newPost} onChange={e => setNewPost(e.target.value)} style={{ width: "100%", border: "2px solid #FFE0B2", borderRadius: 14, padding: 12, fontFamily: "Nunito", fontSize: 14, resize: "none", height: 80, outline: "none" }} placeholder={`${me.petName} olarak bir şeyler paylaş... 🐾`} />
+                  {postImage && (
+                    <div style={{ position: "relative", marginBottom: 10 }}>
+                      <img src={postImage} alt="önizleme" style={{ width: "100%", borderRadius: 14, maxHeight: 200, objectFit: "cover" }} />
+                      <button onClick={() => setPostImage(null)} style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.5)", border: "none", borderRadius: "50%", width: 28, height: 28, color: "#fff", cursor: "pointer", fontSize: 14 }}>✕</button>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                    <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImageUpload} />
+                    <button className="action-btn" onClick={() => fileInputRef.current.click()} style={{ ...btn("#FFF3E0","#FF7043"), border: "2px solid #FFE0B2" }}>📷 Fotoğraf</button>
+                    <button className="action-btn" onClick={addPost} style={btn("#FF7043","#fff")}>Paylaş 🚀</button>
+                  </div>
                 </div>
               </div>
             </div>
             {feedPosts.map(post => {
               const poster = getUser(post.userId);
-              if(!poster) return null;
+              if (!poster) return null;
               return (
-                <div key={post.id} className="post-card" style={{ background:"#fff", borderRadius:20, padding:18, marginBottom:14, boxShadow:"0 3px 12px rgba(0,0,0,0.06)", transition:"all 0.2s" }}>
-                  <div style={{ display:"flex", gap:12, alignItems:"center", marginBottom:12 }}>
-                    <div style={{ fontSize:40 }}>{poster.avatar}</div>
+                <div key={post.id} className="post-card" style={{ background: "#fff", borderRadius: 20, padding: 18, marginBottom: 14, boxShadow: "0 3px 12px rgba(0,0,0,0.06)", transition: "all 0.2s" }}>
+                  <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
+                    <div style={{ fontSize: 40 }}>{poster.avatar}</div>
                     <div>
-                      <div style={{ fontWeight:800, fontSize:16, color:"#333" }}>{poster.petName}</div>
-                      <div style={{ fontSize:12, color:"#aaa" }}>{SPECIES_EMOJI[poster.species]} {poster.breed} · {post.time}</div>
+                      <div style={{ fontWeight: 800, fontSize: 16, color: "#333" }}>{poster.petName}</div>
+                      <div style={{ fontSize: 12, color: "#aaa" }}>{SPECIES_EMOJI[poster.species]} {poster.breed} · {post.time}</div>
                     </div>
                   </div>
-                  <div style={{ fontSize:60, textAlign:"center", padding:"10px 0", background:"#FFF8F0", borderRadius:16, marginBottom:10 }}>{post.image}</div>
-                  <p style={{ fontSize:15, color:"#444", margin:"0 0 12px" }}>{post.text}</p>
-                  <div style={{ display:"flex", gap:10 }}>
-                    <button className="action-btn" onClick={() => likePost(post.id)} style={{...btn("#FFF3E0","#FF7043"),border:"2px solid #FFE0B2"}}>❤️ {post.likes}</button>
-                    <button className="action-btn" style={{...btn("#F3F0FF","#7C4DFF"),border:"2px solid #EDE7F6"}}>💬 {post.comments.length}</button>
+                  {post.image ? (
+                    <img src={post.image} alt="gönderi" style={{ width: "100%", borderRadius: 16, maxHeight: 280, objectFit: "cover", marginBottom: 10 }} />
+                  ) : post.emoji ? (
+                    <div style={{ fontSize: 60, textAlign: "center", padding: "10px 0", background: "#FFF8F0", borderRadius: 16, marginBottom: 10 }}>{post.emoji}</div>
+                  ) : null}
+                  {post.text && <p style={{ fontSize: 15, color: "#444", margin: "0 0 12px" }}>{post.text}</p>}
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button className="action-btn" onClick={() => toggleLike(post.id)} style={{ ...btn((post.likedBy||[]).includes(me.id) ? "#FFE0B2" : "#FFF3E0", "#FF7043"), border: "2px solid #FFE0B2", transition:"all 0.2s" }}>
+                      {(post.likedBy||[]).includes(me.id) ? "❤️" : "🤍"} {post.likes}
+                    </button>
+                    <button className="action-btn" onClick={() => setOpenComments(prev => ({ ...prev, [post.id]: !prev[post.id] }))} style={{ ...btn("#F3F0FF","#7C4DFF"), border: "2px solid #EDE7F6", transition:"all 0.2s" }}>💬 {post.comments.length}</button>
                   </div>
-                  {post.comments.length>0 && <div style={{ marginTop:10, paddingTop:10, borderTop:"1px solid #f0f0f0" }}>{post.comments.map((c,i)=><div key={i} style={{ fontSize:13, color:"#666", padding:"4px 0" }}>🐾 {c}</div>)}</div>}
+                  {openComments[post.id] && (
+                    <div style={{ marginTop: 12, borderTop: "1px solid #f0f0f0", paddingTop: 10 }}>
+                      {post.comments.map((c, i) => {
+                        const commenter = getUser(c.userId);
+                        return (
+                          <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8 }}>
+                            <span style={{ fontSize: 22 }}>{commenter?.avatar || "🐾"}</span>
+                            <div style={{ background: "#FFF3E0", borderRadius: 12, padding: "6px 12px", flex: 1 }}>
+                              <div style={{ fontWeight: 800, fontSize: 12, color: "#FF7043" }}>{commenter?.petName || "?"}</div>
+                              <div style={{ fontSize: 13, color: "#444" }}>{c.text}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <span style={{ fontSize: 28 }}>{me.avatar}</span>
+                        <input
+                          value={commentInputs[post.id] || ""}
+                          onChange={e => setCommentInputs(prev => ({ ...prev, [post.id]: e.target.value }))}
+                          onKeyDown={e => e.key === "Enter" && addComment(post.id)}
+                          style={{ flex: 1, border: "2px solid #FFE0B2", borderRadius: 20, padding: "8px 14px", fontFamily: "Nunito", fontSize: 13, outline: "none" }}
+                          placeholder="Yorum yaz... 🐾"
+                        />
+                        <button onClick={() => addComment(post.id)} style={{ background: "#FF7043", border: "none", borderRadius: 20, padding: "8px 14px", color: "#fff", cursor: "pointer", fontWeight: 800 }}>➤</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
 
-        {activeTab==="match" && (
-          <div style={{ animation:"slideUp 0.3s ease" }}>
-            <div style={{ background:"linear-gradient(135deg,#FF7043,#FF8A65)", borderRadius:20, padding:20, marginBottom:18, color:"#fff", textAlign:"center" }}>
-              <div style={{ fontSize:50, marginBottom:5 }}>🔍</div>
-              <h2 style={{ fontFamily:"Fredoka One", fontSize:24, margin:"0 0 5px" }}>Eşleşme Bul</h2>
-              <p style={{ fontSize:14, opacity:0.9, margin:0 }}>{me.petName} · {SPECIES_EMOJI[me.species]} {me.breed}</p>
+        {/* MATCH */}
+        {activeTab === "match" && (
+          <div style={{ animation: "slideUp 0.3s ease" }}>
+            <div style={{ background: "linear-gradient(135deg, #FF7043, #FF8A65)", borderRadius: 20, padding: 20, marginBottom: 18, color: "#fff", textAlign: "center" }}>
+              <div style={{ fontSize: 50, marginBottom: 5 }}>🔍</div>
+              <h2 style={{ fontFamily: "Fredoka One", fontSize: 24, margin: "0 0 5px" }}>Eşleşme Bul</h2>
+              <p style={{ fontSize: 14, opacity: 0.9, margin: 0 }}>{me.petName} · {SPECIES_EMOJI[me.species]} {me.breed}</p>
             </div>
-            <div style={{ display:"flex", gap:10, marginBottom:18 }}>
-              {["all","species"].map(f=>(
-                <button key={f} onClick={()=>setMatchFilter(f)} style={{ flex:1, padding:"10px", borderRadius:14, border:"2px solid", borderColor:matchFilter===f?"#FF7043":"#eee", background:matchFilter===f?"#FFF3E0":"#fff", color:matchFilter===f?"#FF7043":"#aaa", fontFamily:"Nunito", fontWeight:800, cursor:"pointer", fontSize:14 }}>
-                  {f==="all"?`🎯 Aynı Irk (${users.filter(u=>u.id!==me.id&&u.breed===me.breed).length})`:`${SPECIES_EMOJI[me.species]} Aynı Tür (${users.filter(u=>u.id!==me.id&&u.species===me.species).length})`}
+            <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+              {["all", "species"].map(f => (
+                <button key={f} onClick={() => setMatchFilter(f)} style={{ flex: 1, padding: "10px", borderRadius: 14, border: "2px solid", borderColor: matchFilter === f ? "#FF7043" : "#eee", background: matchFilter === f ? "#FFF3E0" : "#fff", color: matchFilter === f ? "#FF7043" : "#aaa", fontFamily: "Nunito", fontWeight: 800, cursor: "pointer", fontSize: 14 }}>
+                  {f === "all" ? `🎯 Aynı Irk (${users.filter(u=>u.id!==me.id&&u.breed===me.breed).length})` : `${SPECIES_EMOJI[me.species]} Aynı Tür (${users.filter(u=>u.id!==me.id&&u.species===me.species).length})`}
                 </button>
               ))}
             </div>
-            {matchedUsers.length===0 ? (
-              <div style={{ textAlign:"center", padding:40, background:"#fff", borderRadius:20 }}>
-                <div style={{ fontSize:60 }}>😢</div>
-                <p style={{ color:"#aaa", fontWeight:700 }}>Henüz eşleşme bulunamadı!</p>
+            {matchedUsers.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 40, background: "#fff", borderRadius: 20 }}>
+                <div style={{ fontSize: 60 }}>😢</div>
+                <p style={{ color: "#aaa", fontWeight: 700 }}>Henüz eşleşme bulunamadı!</p>
               </div>
-            ) : matchedUsers.map(u=>(
-              <div key={u.id} className="user-card" style={{ background:"#fff", borderRadius:20, padding:18, marginBottom:12, boxShadow:"0 3px 12px rgba(0,0,0,0.06)", transition:"all 0.2s" }}>
-                <div style={{ display:"flex", gap:14, alignItems:"center" }}>
-                  <div style={{ fontSize:52, background:"#FFF3E0", borderRadius:"50%", width:70, height:70, display:"flex", alignItems:"center", justifyContent:"center" }}>{u.avatar}</div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:800, fontSize:18, color:"#333" }}>{u.petName}</div>
-                    <div style={{ fontSize:13, color:"#888" }}>{SPECIES_EMOJI[u.species]} {u.species} · {u.breed} · {u.age} yaş</div>
-                    <div style={{ fontSize:12, color:"#aaa" }}>Sahibi: {u.ownerName}</div>
-                    {u.breed===me.breed && <div style={{ background:"#E8F5E9", color:"#2E7D32", borderRadius:8, padding:"3px 10px", fontSize:11, fontWeight:800, display:"inline-block", marginTop:4 }}>✨ Aynı ırk!</div>}
+            ) : matchedUsers.map(u => (
+              <div key={u.id} className="user-card" style={{ background: "#fff", borderRadius: 20, padding: 18, marginBottom: 12, boxShadow: "0 3px 12px rgba(0,0,0,0.06)", transition: "all 0.2s" }}>
+                <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                  <div style={{ fontSize: 52, background: "#FFF3E0", borderRadius: "50%", width: 70, height: 70, display: "flex", alignItems: "center", justifyContent: "center" }}>{u.avatar}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 800, fontSize: 18, color: "#333" }}>{u.petName}</div>
+                    <div style={{ fontSize: 13, color: "#888" }}>{SPECIES_EMOJI[u.species]} {u.species} · {u.breed} · {u.age} yaş</div>
+                    <div style={{ fontSize: 12, color: "#aaa" }}>Sahibi: {u.ownerName}</div>
+                    {u.breed === me.breed && <div style={{ background: "#E8F5E9", color: "#2E7D32", borderRadius: 8, padding: "3px 10px", fontSize: 11, fontWeight: 800, display: "inline-block", marginTop: 4 }}>✨ Aynı ırk!</div>}
                   </div>
                 </div>
-                <p style={{ fontSize:13, color:"#666", margin:"10px 0" }}>{u.bio}</p>
-                <div style={{ display:"flex", gap:8 }}>
-                  {isFriend(u.id) ? <button style={{...btn("#E8F5E9","#2E7D32"),border:"2px solid #C8E6C9"}}>✅ Arkadaşsınız</button>
-                  : hasSentReq(u.id) ? <button style={{...btn("#FFF3E0","#FF7043"),border:"2px solid #FFE0B2"}}>⏳ İstek Gönderildi</button>
-                  : <button className="action-btn" onClick={()=>sendFriendRequest(u.id)} style={btn("#FF7043","#fff")}>🐾 Arkadaş Ekle</button>}
-                  {isFriend(u.id) && <button className="action-btn" onClick={()=>{setActiveChatId(u.id);setActiveTab("chat");}} style={btn("#7C4DFF","#fff")}>💬 Mesaj</button>}
+                <p style={{ fontSize: 13, color: "#666", margin: "10px 0" }}>{u.bio}</p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {isFriend(u.id) ? (
+                    <button style={{ ...btn("#E8F5E9","#2E7D32"), border: "2px solid #C8E6C9" }}>✅ Arkadaşsınız</button>
+                  ) : hasSentReq(u.id) ? (
+                    <button style={{ ...btn("#FFF3E0","#FF7043"), border: "2px solid #FFE0B2" }}>⏳ İstek Gönderildi</button>
+                  ) : (
+                    <button className="action-btn" onClick={() => sendFriendRequest(u.id)} style={btn("#FF7043","#fff")}>🐾 Arkadaş Ekle</button>
+                  )}
+                  {isFriend(u.id) && (
+                    <button className="action-btn" onClick={() => { setActiveChatId(u.id); setActiveTab("chat"); }} style={btn("#7C4DFF","#fff")}>💬 Mesaj</button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {activeTab==="friends" && (
-          <div style={{ animation:"slideUp 0.3s ease" }}>
-            {myRequests.length>0 && (
-              <div style={{ background:"#fff", borderRadius:20, padding:18, marginBottom:16, boxShadow:"0 3px 12px rgba(0,0,0,0.06)" }}>
-                <h3 style={{ fontFamily:"Fredoka One", color:"#FF7043", margin:"0 0 12px", fontSize:18 }}>🔔 Arkadaşlık İstekleri</h3>
-                {myRequests.map(req=>{
-                  const sender=getUser(req.from);
-                  return sender?(
-                    <div key={req.from} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 0", borderBottom:"1px solid #f5f5f5" }}>
-                      <div style={{ fontSize:36 }}>{sender.avatar}</div>
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontWeight:800 }}>{sender.petName}</div>
-                        <div style={{ fontSize:12, color:"#aaa" }}>{SPECIES_EMOJI[sender.species]} {sender.breed}</div>
+        {/* FRIENDS */}
+        {activeTab === "friends" && (
+          <div style={{ animation: "slideUp 0.3s ease" }}>
+            {myRequests.length > 0 && (
+              <div style={{ background: "#fff", borderRadius: 20, padding: 18, marginBottom: 16, boxShadow: "0 3px 12px rgba(0,0,0,0.06)" }}>
+                <h3 style={{ fontFamily: "Fredoka One", color: "#FF7043", margin: "0 0 12px", fontSize: 18 }}>🔔 Arkadaşlık İstekleri</h3>
+                {myRequests.map(req => {
+                  const sender = getUser(req.from);
+                  return sender ? (
+                    <div key={req.from} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #f5f5f5" }}>
+                      <div style={{ fontSize: 36 }}>{sender.avatar}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 800 }}>{sender.petName}</div>
+                        <div style={{ fontSize: 12, color: "#aaa" }}>{SPECIES_EMOJI[sender.species]} {sender.breed}</div>
                       </div>
-                      <button className="action-btn" onClick={()=>acceptFriendRequest(req.from)} style={btn("#66BB6A","#fff")}>✅ Kabul</button>
-                      <button className="action-btn" onClick={()=>setFriendRequests(prev=>prev.filter(r=>!(r.from===req.from&&r.to===me.id)))} style={btn("#eee","#555")}>❌</button>
+                      <button className="action-btn" onClick={() => acceptFriendRequest(req.from)} style={btn("#66BB6A","#fff")}>✅ Kabul</button>
+                      <button className="action-btn" onClick={() => setFriendRequests(prev => prev.filter(r => !(r.from === req.from && r.to === me.id)))} style={{ ...btn("#eee","#555") }}>❌</button>
                     </div>
-                  ):null;
+                  ) : null;
                 })}
               </div>
             )}
-            <div style={{ background:"#fff", borderRadius:20, padding:18, boxShadow:"0 3px 12px rgba(0,0,0,0.06)" }}>
-              <h3 style={{ fontFamily:"Fredoka One", color:"#FF7043", margin:"0 0 12px", fontSize:18 }}>🐾 Arkadaşlarım ({me.friends?.length||0})</h3>
-              {(!me.friends||me.friends.length===0)?(
-                <div style={{ textAlign:"center", padding:30 }}>
-                  <div style={{ fontSize:50 }}>🐾</div>
-                  <p style={{ color:"#aaa", fontWeight:700 }}>Henüz arkadaşın yok!</p>
-                  <button className="action-btn" onClick={()=>setActiveTab("match")} style={btn("#FF7043","#fff")}>🔍 Eşleşme Bul</button>
+            <div style={{ background: "#fff", borderRadius: 20, padding: 18, boxShadow: "0 3px 12px rgba(0,0,0,0.06)" }}>
+              <h3 style={{ fontFamily: "Fredoka One", color: "#FF7043", margin: "0 0 12px", fontSize: 18 }}>🐾 Arkadaşlarım ({me.friends?.length || 0})</h3>
+              {(!me.friends || me.friends.length === 0) ? (
+                <div style={{ textAlign: "center", padding: 30 }}>
+                  <div style={{ fontSize: 50 }}>🐾</div>
+                  <p style={{ color: "#aaa", fontWeight: 700 }}>Henüz arkadaşın yok. Eşleşmeye git!</p>
+                  <button className="action-btn" onClick={() => setActiveTab("match")} style={btn("#FF7043","#fff")}>🔍 Eşleşme Bul</button>
                 </div>
-              ):me.friends.map(fid=>{
-                const friend=getUser(fid);
-                return friend?(
-                  <div key={fid} className="user-card" style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0", borderBottom:"1px solid #f5f5f5", transition:"all 0.2s" }}>
-                    <div style={{ fontSize:42 }}>{friend.avatar}</div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:800, fontSize:16 }}>{friend.petName}</div>
-                      <div style={{ fontSize:12, color:"#aaa" }}>{SPECIES_EMOJI[friend.species]} {friend.breed} · {friend.age} yaş</div>
+              ) : me.friends.map(fid => {
+                const friend = getUser(fid);
+                return friend ? (
+                  <div key={fid} className="user-card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #f5f5f5", transition: "all 0.2s" }}>
+                    <div style={{ fontSize: 42 }}>{friend.avatar}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 800, fontSize: 16 }}>{friend.petName}</div>
+                      <div style={{ fontSize: 12, color: "#aaa" }}>{SPECIES_EMOJI[friend.species]} {friend.breed} · {friend.age} yaş</div>
+                      <div style={{ fontSize: 12, color: "#bbb" }}>Sahibi: {friend.ownerName}</div>
                     </div>
-                    <button className="action-btn" onClick={()=>{setActiveChatId(fid);setActiveTab("chat");}} style={btn("#7C4DFF","#fff")}>💬 Mesaj</button>
+                    <button className="action-btn" onClick={() => { setActiveChatId(fid); setActiveTab("chat"); }} style={btn("#7C4DFF","#fff")}>💬 Mesaj</button>
                   </div>
-                ):null;
+                ) : null;
               })}
             </div>
           </div>
         )}
 
-        {activeTab==="chat" && !activeChatId && (
-          <div style={{ animation:"slideUp 0.3s ease" }}>
-            <div style={{ background:"linear-gradient(135deg,#7C4DFF,#9C27B0)", borderRadius:20, padding:20, marginBottom:18, color:"#fff", textAlign:"center" }}>
-              <div style={{ fontSize:50 }}>💬</div>
-              <h2 style={{ fontFamily:"Fredoka One", fontSize:24, margin:"5px 0 0" }}>Sohbetler</h2>
+        {/* CHAT */}
+        {activeTab === "chat" && !activeChatId && (
+          <div style={{ animation: "slideUp 0.3s ease" }}>
+            <div style={{ background: "linear-gradient(135deg, #7C4DFF, #9C27B0)", borderRadius: 20, padding: 20, marginBottom: 18, color: "#fff", textAlign: "center" }}>
+              <div style={{ fontSize: 50 }}>💬</div>
+              <h2 style={{ fontFamily: "Fredoka One", fontSize: 24, margin: "5px 0 0" }}>Sohbetler</h2>
             </div>
-            {(!me.friends||me.friends.length===0)?(
-              <div style={{ textAlign:"center", padding:40, background:"#fff", borderRadius:20 }}>
-                <div style={{ fontSize:60 }}>💬</div>
-                <p style={{ color:"#aaa", fontWeight:700 }}>Mesaj atmak için önce arkadaş ekle!</p>
-                <button className="action-btn" onClick={()=>setActiveTab("match")} style={btn("#FF7043","#fff")}>🔍 Arkadaş Bul</button>
+            {(!me.friends || me.friends.length === 0) ? (
+              <div style={{ textAlign: "center", padding: 40, background: "#fff", borderRadius: 20 }}>
+                <div style={{ fontSize: 60 }}>💬</div>
+                <p style={{ color: "#aaa", fontWeight: 700 }}>Mesaj atmak için önce arkadaş ekle!</p>
+                <button className="action-btn" onClick={() => setActiveTab("match")} style={btn("#FF7043","#fff")}>🔍 Arkadaş Bul</button>
               </div>
-            ):me.friends.map(fid=>{
-              const friend=getUser(fid);
-              if(!friend) return null;
-              const key=getChatKey(fid);
-              const chatMsgs=messages[key]||[];
-              const last=chatMsgs[chatMsgs.length-1];
+            ) : me.friends.map(fid => {
+              const friend = getUser(fid);
+              if (!friend) return null;
+              const key = getChatKey(fid);
+              const chatMsgs = messages[key] || [];
+              const last = chatMsgs[chatMsgs.length - 1];
               return (
-                <div key={fid} className="user-card" onClick={()=>setActiveChatId(fid)} style={{ background:"#fff", borderRadius:18, padding:16, marginBottom:10, boxShadow:"0 3px 12px rgba(0,0,0,0.06)", display:"flex", gap:12, alignItems:"center", cursor:"pointer", transition:"all 0.2s" }}>
-                  <div style={{ fontSize:44 }}>{friend.avatar}</div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:800, fontSize:16 }}>{friend.petName}</div>
-                    <div style={{ fontSize:13, color:"#aaa" }}>{last?last.text.substring(0,30)+(last.text.length>30?"...":""):"Henüz mesaj yok"}</div>
+                <div key={fid} className="user-card" onClick={() => setActiveChatId(fid)} style={{ background: "#fff", borderRadius: 18, padding: 16, marginBottom: 10, boxShadow: "0 3px 12px rgba(0,0,0,0.06)", display: "flex", gap: 12, alignItems: "center", cursor: "pointer", transition: "all 0.2s" }}>
+                  <div style={{ fontSize: 44 }}>{friend.avatar}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 800, fontSize: 16 }}>{friend.petName}</div>
+                    <div style={{ fontSize: 13, color: "#aaa" }}>{last ? last.text.substring(0, 30) + (last.text.length > 30 ? "..." : "") : "Henüz mesaj yok"}</div>
                   </div>
-                  <div style={{ fontSize:20 }}>›</div>
+                  <div style={{ fontSize: 20 }}>›</div>
                 </div>
               );
             })}
           </div>
         )}
 
-        {activeTab==="chat" && activeChatId && (()=>{
-          const friend=getUser(activeChatId);
-          const key=getChatKey(activeChatId);
-          const chatMsgs=messages[key]||[];
+        {activeTab === "chat" && activeChatId && (() => {
+          const friend = getUser(activeChatId);
+          const key = getChatKey(activeChatId);
+          const chatMsgs = messages[key] || [];
           return (
-            <div style={{ animation:"slideUp 0.3s ease" }}>
-              <div style={{ display:"flex", alignItems:"center", gap:12, background:"#fff", borderRadius:20, padding:14, marginBottom:14, boxShadow:"0 3px 12px rgba(0,0,0,0.06)" }}>
-                <button onClick={()=>setActiveChatId(null)} style={{ background:"#FFF3E0", border:"none", borderRadius:12, padding:"8px 12px", cursor:"pointer", fontWeight:800, color:"#FF7043" }}>←</button>
-                <div style={{ fontSize:40 }}>{friend.avatar}</div>
+            <div style={{ animation: "slideUp 0.3s ease" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", borderRadius: 20, padding: 14, marginBottom: 14, boxShadow: "0 3px 12px rgba(0,0,0,0.06)" }}>
+                <button onClick={() => setActiveChatId(null)} style={{ background: "#FFF3E0", border: "none", borderRadius: 12, padding: "8px 12px", cursor: "pointer", fontWeight: 800, color: "#FF7043" }}>←</button>
+                <div style={{ fontSize: 40 }}>{friend.avatar}</div>
                 <div>
-                  <div style={{ fontWeight:800, fontSize:16 }}>{friend.petName}</div>
-                  <div style={{ fontSize:12, color:"#aaa" }}>{SPECIES_EMOJI[friend.species]} {friend.breed}</div>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>{friend.petName}</div>
+                  <div style={{ fontSize: 12, color: "#aaa" }}>{SPECIES_EMOJI[friend.species]} {friend.breed}</div>
                 </div>
               </div>
-              <div style={{ background:"#fff", borderRadius:20, padding:16, minHeight:350, maxHeight:420, overflowY:"auto", marginBottom:12, boxShadow:"0 3px 12px rgba(0,0,0,0.06)" }}>
-                {chatMsgs.length===0&&<div style={{ textAlign:"center", padding:40, color:"#ccc" }}><div style={{ fontSize:50 }}>🐾</div><p>Merhaba demek için bir şeyler yaz!</p></div>}
-                {chatMsgs.map((msg,i)=>{
-                  const isMe=msg.from===me.id;
+              <div style={{ background: "#fff", borderRadius: 20, padding: 16, minHeight: 350, maxHeight: 420, overflowY: "auto", marginBottom: 12, boxShadow: "0 3px 12px rgba(0,0,0,0.06)" }}>
+                {chatMsgs.length === 0 && (
+                  <div style={{ textAlign: "center", padding: 40, color: "#ccc" }}>
+                    <div style={{ fontSize: 50 }}>🐾</div>
+                    <p>Merhaba demek için bir şeyler yaz!</p>
+                  </div>
+                )}
+                {chatMsgs.map((msg, i) => {
+                  const isMe = msg.from === me.id;
                   return (
-                    <div key={i} style={{ display:"flex", justifyContent:isMe?"flex-end":"flex-start", marginBottom:10 }}>
-                      {!isMe&&<div style={{ fontSize:28, marginRight:8 }}>{friend.avatar}</div>}
-                      <div style={{ maxWidth:"70%", background:isMe?"linear-gradient(135deg,#FF7043,#FF8A65)":"#F5F5F5", color:isMe?"#fff":"#333", borderRadius:isMe?"18px 18px 4px 18px":"18px 18px 18px 4px", padding:"10px 14px", fontSize:14, fontWeight:600 }}>
+                    <div key={i} style={{ display: "flex", justifyContent: isMe ? "flex-end" : "flex-start", marginBottom: 10 }}>
+                      {!isMe && <div style={{ fontSize: 28, marginRight: 8 }}>{friend.avatar}</div>}
+                      <div style={{ maxWidth: "70%", background: isMe ? "linear-gradient(135deg, #FF7043, #FF8A65)" : "#F5F5F5", color: isMe ? "#fff" : "#333", borderRadius: isMe ? "18px 18px 4px 18px" : "18px 18px 18px 4px", padding: "10px 14px", fontSize: 14, fontWeight: 600 }}>
                         {msg.text}
-                        <div style={{ fontSize:10, opacity:0.7, marginTop:3, textAlign:"right" }}>{msg.time}</div>
+                        <div style={{ fontSize: 10, opacity: 0.7, marginTop: 3, textAlign: "right" }}>{msg.time}</div>
                       </div>
                     </div>
                   );
                 })}
                 <div ref={chatEndRef} />
               </div>
-              <div style={{ display:"flex", gap:10 }}>
-                <input value={newMsg} onChange={e=>setNewMsg(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendMessage()} style={{ flex:1, border:"2px solid #FFE0B2", borderRadius:25, padding:"12px 18px", fontFamily:"Nunito", fontSize:14, outline:"none" }} placeholder="Mesaj yaz... 🐾" />
-                <button className="action-btn" onClick={sendMessage} style={{ background:"linear-gradient(135deg,#FF7043,#FF8A65)", border:"none", borderRadius:25, padding:"12px 20px", color:"#fff", cursor:"pointer", fontWeight:800, fontSize:18 }}>➤</button>
+              <div style={{ display: "flex", gap: 10 }}>
+                <input value={newMsg} onChange={e => setNewMsg(e.target.value)} onKeyDown={e => e.key === "Enter" && sendMessage()} style={{ flex: 1, border: "2px solid #FFE0B2", borderRadius: 25, padding: "12px 18px", fontFamily: "Nunito", fontSize: 14, outline: "none" }} placeholder="Mesaj yaz... 🐾" />
+                <button className="action-btn" onClick={sendMessage} style={{ background: "linear-gradient(135deg,#FF7043,#FF8A65)", border: "none", borderRadius: 25, padding: "12px 20px", color: "#fff", cursor: "pointer", fontWeight: 800, fontSize: 18 }}>➤</button>
               </div>
             </div>
           );
         })()}
 
-        {activeTab==="profile" && (
-          <div style={{ animation:"slideUp 0.3s ease" }}>
-            <div style={{ background:"linear-gradient(135deg,#FF7043,#FFAB40)", borderRadius:24, padding:28, marginBottom:18, textAlign:"center", color:"#fff" }}>
-              <div style={{ fontSize:80, animation:"float 2.5s ease-in-out infinite" }}>{me.avatar}</div>
-              <h2 style={{ fontFamily:"Fredoka One", fontSize:32, margin:"8px 0 4px" }}>{me.petName}</h2>
-              <div style={{ fontSize:15, opacity:0.9, marginBottom:6 }}>{SPECIES_EMOJI[me.species]} {me.species} · {me.breed}</div>
-              <div style={{ fontSize:14, opacity:0.8 }}>{me.age} yaşında · Sahibi: {me.ownerName}</div>
+        {/* PROFILE */}
+        {activeTab === "profile" && (
+          <div style={{ animation: "slideUp 0.3s ease" }}>
+            <div style={{ background: "linear-gradient(135deg, #FF7043, #FFAB40)", borderRadius: 24, padding: 28, marginBottom: 18, textAlign: "center", color: "#fff", position: "relative" }}>
+              <div style={{ fontSize: 80, animation: "float 2.5s ease-in-out infinite" }}>{me.avatar}</div>
+              <h2 style={{ fontFamily: "Fredoka One", fontSize: 32, margin: "8px 0 4px" }}>{me.petName}</h2>
+              <div style={{ fontSize: 15, opacity: 0.9, marginBottom: 6 }}>{SPECIES_EMOJI[me.species]} {me.species} · {me.breed}</div>
+              <div style={{ fontSize: 14, opacity: 0.8 }}>{me.age} yaşında · Sahibi: {me.ownerName}</div>
             </div>
-            <div style={{ background:"#fff", borderRadius:20, padding:18, marginBottom:14, boxShadow:"0 3px 12px rgba(0,0,0,0.06)" }}>
-              <h4 style={{ color:"#FF7043", fontFamily:"Fredoka One", margin:"0 0 8px" }}>📝 Hakkımda</h4>
-              <p style={{ color:"#555", fontSize:15, margin:0 }}>{me.bio}</p>
+            <div style={{ background: "#fff", borderRadius: 20, padding: 18, marginBottom: 14, boxShadow: "0 3px 12px rgba(0,0,0,0.06)" }}>
+              <h4 style={{ color: "#FF7043", fontFamily: "Fredoka One", margin: "0 0 8px" }}>📝 Hakkımda</h4>
+              <p style={{ color: "#555", fontSize: 15, margin: 0 }}>{me.bio}</p>
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:18 }}>
-              {[{label:"Arkadaş",value:me.friends?.length||0,icon:"🐾"},{label:"Gönderi",value:myPosts.length,icon:"📸"},{label:"Yaş",value:me.age+" yaş",icon:"🎂"}].map(s=>(
-                <div key={s.label} style={{ background:"#fff", borderRadius:18, padding:16, textAlign:"center", boxShadow:"0 3px 12px rgba(0,0,0,0.06)" }}>
-                  <div style={{ fontSize:28 }}>{s.icon}</div>
-                  <div style={{ fontFamily:"Fredoka One", fontSize:22, color:"#FF7043" }}>{s.value}</div>
-                  <div style={{ fontSize:12, color:"#aaa", fontWeight:700 }}>{s.label}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 18 }}>
+              {[
+                { label: "Arkadaş", value: me.friends?.length || 0, icon: "🐾" },
+                { label: "Gönderi", value: myPosts.length, icon: "📸" },
+                { label: "Yaş", value: me.age + " yaş", icon: "🎂" },
+              ].map(s => (
+                <div key={s.label} style={{ background: "#fff", borderRadius: 18, padding: 16, textAlign: "center", boxShadow: "0 3px 12px rgba(0,0,0,0.06)" }}>
+                  <div style={{ fontSize: 28 }}>{s.icon}</div>
+                  <div style={{ fontFamily: "Fredoka One", fontSize: 22, color: "#FF7043" }}>{s.value}</div>
+                  <div style={{ fontSize: 12, color: "#aaa", fontWeight: 700 }}>{s.label}</div>
                 </div>
               ))}
             </div>
-            <div style={{ background:"#fff", borderRadius:20, padding:18, boxShadow:"0 3px 12px rgba(0,0,0,0.06)" }}>
-              <h4 style={{ color:"#FF7043", fontFamily:"Fredoka One", margin:"0 0 12px" }}>📸 Gönderilerim</h4>
-              {myPosts.length===0?(
-                <div style={{ textAlign:"center", padding:20, color:"#ccc" }}><div style={{ fontSize:40 }}>📸</div><p>Henüz gönderi yok</p></div>
-              ):myPosts.map(post=>(
-                <div key={post.id} style={{ background:"#FFF8F0", borderRadius:16, padding:14, marginBottom:10 }}>
-                  <div style={{ fontSize:36, textAlign:"center", marginBottom:8 }}>{post.image}</div>
-                  <p style={{ fontSize:14, color:"#555", margin:"0 0 8px" }}>{post.text}</p>
-                  <div style={{ fontSize:12, color:"#aaa" }}>❤️ {post.likes} beğeni · {post.time}</div>
+            <div style={{ background: "#fff", borderRadius: 20, padding: 18, boxShadow: "0 3px 12px rgba(0,0,0,0.06)" }}>
+              <h4 style={{ color: "#FF7043", fontFamily: "Fredoka One", margin: "0 0 12px" }}>📸 Gönderilerim</h4>
+              {myPosts.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 20, color: "#ccc" }}>
+                  <div style={{ fontSize: 40 }}>📸</div>
+                  <p>Henüz gönderi yok</p>
+                </div>
+              ) : myPosts.map(post => (
+                <div key={post.id} style={{ background: "#FFF8F0", borderRadius: 16, padding: 14, marginBottom: 10 }}>
+                  <div style={{ fontSize: 36, textAlign: "center", marginBottom: 8 }}>{post.image}</div>
+                  <p style={{ fontSize: 14, color: "#555", margin: "0 0 8px" }}>{post.text}</p>
+                  <div style={{ fontSize: 12, color: "#aaa" }}>❤️ {post.likes} beğeni · {post.time}</div>
                 </div>
               ))}
             </div>
@@ -492,24 +697,25 @@ export default function PetSocial() {
   );
 }
 
+// Helpers
 function btn(bg, color, width) {
-  return { background:bg, color, border:"none", borderRadius:20, padding:"9px 18px", fontFamily:"Nunito", fontWeight:800, fontSize:13, cursor:"pointer", width:width||"auto", transition:"all 0.2s" };
+  return { background: bg, color, border: "none", borderRadius: 20, padding: "9px 18px", fontFamily: "Nunito", fontWeight: 800, fontSize: 13, cursor: "pointer", width: width || "auto", transition: "all 0.2s" };
 }
 function authBg() {
-  return { minHeight:"100vh", background:"linear-gradient(135deg,#FFF4E6 0%,#FFE0B2 50%,#FFCCBC 100%)", display:"flex", alignItems:"center", justifyContent:"center", padding:20, fontFamily:"Nunito, sans-serif" };
+  return { minHeight: "100vh", background: "linear-gradient(135deg, #FFF4E6 0%, #FFE0B2 50%, #FFCCBC 100%)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "Nunito, sans-serif" };
 }
 function card(maxWidth) {
-  return { background:"#fff", borderRadius:28, padding:32, width:"100%", maxWidth:maxWidth||"420px", boxShadow:"0 10px 40px rgba(255,112,67,0.15)", animation:"pop 0.4s ease", display:"flex", flexDirection:"column", gap:12, position:"relative" };
+  return { background: "#fff", borderRadius: 28, padding: 32, width: "100%", maxWidth: maxWidth || "420px", boxShadow: "0 10px 40px rgba(255,112,67,0.15)", animation: "pop 0.4s ease", display: "flex", flexDirection: "column", gap: 12, position: "relative" };
 }
 function title() {
-  return { fontFamily:"Fredoka One", fontSize:26, color:"#E65100", margin:"0 0 4px", textAlign:"center" };
+  return { fontFamily: "Fredoka One", fontSize: 26, color: "#E65100", margin: "0 0 4px", textAlign: "center" };
 }
 function input() {
-  return { width:"100%", border:"2px solid #FFE0B2", borderRadius:14, padding:"11px 14px", fontFamily:"Nunito", fontSize:14, outline:"none", background:"#FFFAF5", color:"#333" };
+  return { width: "100%", border: "2px solid #FFE0B2", borderRadius: 14, padding: "11px 14px", fontFamily: "Nunito", fontSize: 14, outline: "none", background: "#FFFAF5", color: "#333" };
 }
 function label() {
-  return { display:"block", fontWeight:800, fontSize:12, color:"#FF7043", marginBottom:4 };
+  return { display: "block", fontWeight: 800, fontSize: 12, color: "#FF7043", marginBottom: 4 };
 }
 function notifStyle() {
-  return { position:"fixed", top:20, left:"50%", transform:"translateX(-50%)", background:"#fff", border:"3px solid #FF7043", borderRadius:16, padding:"12px 24px", fontWeight:800, color:"#E65100", zIndex:9999, boxShadow:"0 5px 20px rgba(255,112,67,0.3)", animation:"notif 2.5s ease forwards", whiteSpace:"nowrap" };
+  return { position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", background: "#fff", border: "3px solid #FF7043", borderRadius: 16, padding: "12px 24px", fontWeight: 800, color: "#E65100", zIndex: 9999, boxShadow: "0 5px 20px rgba(255,112,67,0.3)", animation: "notif 2.5s ease forwards", whiteSpace: "nowrap" };
 }
