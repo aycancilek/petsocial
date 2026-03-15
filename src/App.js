@@ -66,6 +66,8 @@ export default function PetSocial() {
   const [notification, setNotification] = useState(null);
   const [matchFilter, setMatchFilter] = useState("all");
   const [postImage, setPostImage] = useState(null);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState(null);
+  const profilePhotoRef = useRef(null);
   const [commentInputs, setCommentInputs] = useState({});
   const [openComments, setOpenComments] = useState({});
   const chatEndRef = useRef(null);
@@ -185,6 +187,19 @@ export default function PetSocial() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => setPostImage(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const handleProfilePhoto = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setProfilePhotoPreview(ev.target.result);
+      setCurrentUser(prev => ({ ...prev, profilePhoto: ev.target.result }));
+      setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...u, profilePhoto: ev.target.result } : u));
+      showNotif("📸 Profil fotoğrafı güncellendi!");
+    };
     reader.readAsDataURL(file);
   };
 
@@ -390,7 +405,9 @@ export default function PetSocial() {
             </div>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.25)", borderRadius: 25, padding: "6px 14px", cursor: "pointer" }} onClick={() => setActiveTab("profile")}>
-            <span style={{ fontSize: 22 }}>{me.avatar}</span>
+            <div style={{ width: 30, height: 30, borderRadius: "50%", overflow: "hidden", border: "2px solid rgba(255,255,255,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {me.profilePhoto ? <img src={me.profilePhoto} alt={me.petName} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 20 }}>{me.avatar}</span>}
+            </div>
             <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>{me.petName}</span>
           </div>
           <button onClick={() => { setCurrentUser(null); setScreen("splash"); }} style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", borderRadius: 20, padding: "6px 14px", cursor: "pointer", fontFamily: "Nunito", fontWeight: 700, fontSize: 13 }}>Çıkış</button>
@@ -435,7 +452,9 @@ export default function PetSocial() {
             {/* New Post */}
             <div style={{ background: "#fff", borderRadius: 20, padding: 18, marginBottom: 18, boxShadow: "0 3px 15px rgba(0,0,0,0.06)" }}>
               <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ fontSize: 40 }}>{me.avatar}</div>
+                <div style={{ width: 44, height: 44, borderRadius: "50%", overflow: "hidden", border: "2px solid #FFE0B2", display: "flex", alignItems: "center", justifyContent: "center", background: "#FFF3E0", flexShrink: 0 }}>
+                  {me.profilePhoto ? <img src={me.profilePhoto} alt={me.petName} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 28 }}>{me.avatar}</span>}
+                </div>
                 <div style={{ flex: 1 }}>
                   <textarea value={newPost} onChange={e => setNewPost(e.target.value)} style={{ width: "100%", border: "2px solid #FFE0B2", borderRadius: 14, padding: 12, fontFamily: "Nunito", fontSize: 14, resize: "none", height: 80, outline: "none" }} placeholder={`${me.petName} olarak bir şeyler paylaş... 🐾`} />
                   {postImage && (
@@ -458,7 +477,9 @@ export default function PetSocial() {
               return (
                 <div key={post.id} className="post-card" style={{ background: "#fff", borderRadius: 20, padding: 18, marginBottom: 14, boxShadow: "0 3px 12px rgba(0,0,0,0.06)", transition: "all 0.2s" }}>
                   <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
-                    <div style={{ fontSize: 40 }}>{poster.avatar}</div>
+                    <div style={{ width: 44, height: 44, borderRadius: "50%", overflow: "hidden", border: "2px solid #FFE0B2", display: "flex", alignItems: "center", justifyContent: "center", background: "#FFF3E0", flexShrink: 0 }}>
+                      {poster.profilePhoto ? <img src={poster.profilePhoto} alt={poster.petName} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 28 }}>{poster.avatar}</span>}
+                    </div>
                     <div>
                       <div style={{ fontWeight: 800, fontSize: 16, color: "#333" }}>{poster.petName}</div>
                       <div style={{ fontSize: 12, color: "#aaa" }}>{SPECIES_EMOJI[poster.species]} {poster.breed} · {post.time}</div>
@@ -686,7 +707,15 @@ export default function PetSocial() {
         {activeTab === "profile" && (
           <div style={{ animation: "slideUp 0.3s ease" }}>
             <div style={{ background: "linear-gradient(135deg, #FF7043, #FFAB40)", borderRadius: 24, padding: 28, marginBottom: 18, textAlign: "center", color: "#fff", position: "relative" }}>
-              <div style={{ fontSize: 80, animation: "float 2.5s ease-in-out infinite" }}>{me.avatar}</div>
+              <div style={{ position: "relative", display: "inline-block", marginBottom: 8 }}>
+                {me.profilePhoto ? (
+                  <img src={me.profilePhoto} alt={me.petName} style={{ width: 100, height: 100, borderRadius: "50%", objectFit: "cover", border: "4px solid rgba(255,255,255,0.8)", animation: "float 2.5s ease-in-out infinite" }} />
+                ) : (
+                  <div style={{ fontSize: 80, animation: "float 2.5s ease-in-out infinite" }}>{me.avatar}</div>
+                )}
+                <button onClick={() => profilePhotoRef.current.click()} style={{ position: "absolute", bottom: 0, right: 0, background: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>📷</button>
+                <input ref={profilePhotoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleProfilePhoto} />
+              </div>
               <h2 style={{ fontFamily: "Fredoka One", fontSize: 32, margin: "8px 0 4px" }}>{me.petName}</h2>
               <div style={{ fontSize: 15, opacity: 0.9, marginBottom: 6 }}>{SPECIES_EMOJI[me.species]} {me.species} · {me.breed}</div>
               <div style={{ fontSize: 14, opacity: 0.8 }}>{me.age} yaşında · Sahibi: {me.ownerName}</div>
@@ -731,6 +760,13 @@ export default function PetSocial() {
 }
 
 // Helpers
+function Avatar({ user, size = 40 }) {
+  if (user?.profilePhoto) {
+    return <img src={user.profilePhoto} alt={user.petName} style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", border: "2px solid #FFE0B2" }} />;
+  }
+  return <span style={{ fontSize: size * 0.8 }}>{user?.avatar || "🐾"}</span>;
+}
+
 function btn(bg, color, width) {
   return { background: bg, color, border: "none", borderRadius: 20, padding: "9px 18px", fontFamily: "Nunito", fontWeight: 800, fontSize: 13, cursor: "pointer", width: width || "auto", transition: "all 0.2s" };
 }
