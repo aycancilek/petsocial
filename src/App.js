@@ -90,6 +90,18 @@ export default function PetSocial() {
       showNotif("❌ Lütfen tüm alanları doldurun!");
       return;
     }
+    if (!form.password || form.password.length < 4) {
+      showNotif("❌ Şifre en az 4 karakter olmalı!");
+      return;
+    }
+    if (form.password !== form.password2) {
+      showNotif("❌ Şifreler eşleşmiyor!");
+      return;
+    }
+    if (users.find(u => u.petName.toLowerCase() === form.petName.toLowerCase())) {
+      showNotif("❌ Bu isim zaten kayıtlı!");
+      return;
+    }
     const newUser = {
       id: Date.now(),
       petName: form.petName,
@@ -99,6 +111,7 @@ export default function PetSocial() {
       age: parseInt(form.age),
       avatar: form.avatar,
       bio: form.bio || "Merhaba! Ben yeniyim 🐾",
+      password: form.password,
       friends: [],
       posts: [],
     };
@@ -241,23 +254,35 @@ export default function PetSocial() {
 
   if (screen === "login") return (
     <div style={authBg()}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap'); *{box-sizing:border-box} @keyframes pop{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}}`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap'); *{box-sizing:border-box} @keyframes pop{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}} @keyframes notif{0%{transform:translateX(120%);opacity:0}15%,85%{transform:translateX(0);opacity:1}100%{transform:translateX(120%);opacity:0}}`}</style>
       <div style={card()}>
         <div style={{ fontSize: 60, textAlign: "center" }}>🐾</div>
         <h2 style={title()}>Pet Social'a Giriş</h2>
-        <p style={{ fontFamily: "Nunito", color: "#888", textAlign: "center", marginBottom: 20 }}>Evcil hayvanın adıyla giriş yap!</p>
-        <input style={input()} placeholder="🐾 Evcil hayvanın adı" onKeyDown={e => {
-          if (e.key === "Enter") {
-            const found = users.find(u => u.petName.toLowerCase() === e.target.value.toLowerCase());
-            if (found) { setCurrentUser(found); setScreen("home"); }
-            else showNotif("❌ Kayıtlı hayvan bulunamadı!");
-          }
-        }} />
-        <button style={btn("#FF7043","#fff","100%")} onClick={(e) => {
-          const val = e.target.previousSibling.value;
-          const found = users.find(u => u.petName.toLowerCase() === val.toLowerCase());
-          if (found) { setCurrentUser(found); setScreen("home"); }
-          else showNotif("❌ Kayıtlı hayvan bulunamadı!");
+        <p style={{ fontFamily: "Nunito", color: "#888", textAlign: "center", marginBottom: 10 }}>Evcil hayvanının adı ve şifresiyle giriş yap!</p>
+        <div>
+          <label style={label()}>Evcil Hayvanın Adı</label>
+          <input id="loginName" style={input()} placeholder="🐾 örn: Pamuk" />
+        </div>
+        <div>
+          <label style={label()}>Şifre 🔐</label>
+          <input id="loginPass" type="password" style={input()} placeholder="••••••••"
+            onKeyDown={e => {
+              if (e.key === "Enter") {
+                const name = document.getElementById("loginName").value;
+                const pass = document.getElementById("loginPass").value;
+                const found = users.find(u => u.petName.toLowerCase() === name.toLowerCase() && u.password === pass);
+                if (found) { setCurrentUser(found); setScreen("home"); showNotif(`🎉 Hoş geldin ${found.petName}!`); }
+                else showNotif("❌ İsim veya şifre hatalı!");
+              }
+            }}
+          />
+        </div>
+        <button style={btn("#FF7043","#fff","100%")} onClick={() => {
+          const name = document.getElementById("loginName").value;
+          const pass = document.getElementById("loginPass").value;
+          const found = users.find(u => u.petName.toLowerCase() === name.toLowerCase() && u.password === pass);
+          if (found) { setCurrentUser(found); setScreen("home"); showNotif(`🎉 Hoş geldin ${found.petName}!`); }
+          else showNotif("❌ İsim veya şifre hatalı!");
         }}>Giriş Yap 🚀</button>
         <button style={{...btn("#eee","#555","100%"), marginTop:10}} onClick={() => setScreen("splash")}>← Geri</button>
         {notification && <div style={notifStyle()}>{notification}</div>}
@@ -303,6 +328,14 @@ export default function PetSocial() {
               {AVATARS.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
+        </div>
+        <div>
+          <label style={label()}>Şifre 🔐 *</label>
+          <input type="password" style={input()} placeholder="En az 4 karakter" value={form.password} onChange={e => setForm({...form, password: e.target.value})} />
+        </div>
+        <div>
+          <label style={label()}>Şifre Tekrar 🔐 *</label>
+          <input type="password" style={input()} placeholder="Şifreyi tekrar gir" value={form.password2 || ""} onChange={e => setForm({...form, password2: e.target.value})} />
         </div>
         <div>
           <label style={label()}>Hakkında</label>
